@@ -1,0 +1,10 @@
+@isTest
+public class ParkLocatorTest {
+	@isTest
+    public static void testParkLocatorByCountry() {
+        Test.setMock(WebServiceMock.class, new ParkServiceMock());
+        System.debug('foo');
+        String[] parks = ParkLocator.country('Japan');
+        Assert.areNotEqual(parks.size(), 0, 'this should never be triggered');
+    }
+}

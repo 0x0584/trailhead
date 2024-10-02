@@ -1,5 +1,5 @@
 public class AnimalLocator {
-    public String getAnimalNameById(Integer identifier) {
+    public static String getAnimalNameById(Integer identifier) {
         String url = 'https://th-apex-http-callout.herokuapp.com/animals/<id>'
         				.replace('<id>', '' + identifier);
         String method = 'GET';
@@ -11,21 +11,14 @@ public class AnimalLocator {
         Integer statusCode = res.getStatusCode();
         switch on statusCode {
             when 200 {
-            	System.debug(res.getBody());
-            	/*Map<String, Object> results = (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
-            	List<Object> animals = (List<Object>) results.get('animals');
-                for(Object animal : animals) {
-                    System.debug(animal);
-                }*/
-            	return '';
-            }
-            when 400, 401, 404 {
-            	System.debug('bad request');
-            	return '';
+            	Map<String, Object> results = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                Assert.areEqual(results.size(), 1, 'should only in first NF (Normalisation)');
+            	Map<String, Object> found = (Map<String, Object>) results.get('animal');
+            	return (String) found.get('name');
             }
             when else {
             	System.debug(statusCode);
-            	return '';
+            	return null;
             }
         }
     }

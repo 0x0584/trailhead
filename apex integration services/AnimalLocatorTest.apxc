@@ -1,0 +1,13 @@
+@isTest
+public class AnimalLocatorTest {
+	@isTest
+    public static void testGetAnimalNameById() {
+        Test.setMock(HttpCalloutMock.class, new AnimalLocatorMock());
+        
+        String name = AnimalLocator.getAnimalNameById(1);
+        Assert.areNotEqual(name, null, 'this should never be triggered');
+        Assert.areEqual(name, 'foobar', 'this should never be triggered');
+        name = AnimalLocator.getAnimalNameById(-1);
+        Assert.areEqual(name, null, 'this should never be triggered');
+    } 
+}

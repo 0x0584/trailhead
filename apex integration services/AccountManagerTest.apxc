@@ -1,0 +1,34 @@
+@isTest
+public class AccountManagerTest {
+    @testSetup
+    private static void setup() {
+    	Account account = new Account(Name='foobar');
+        insert account;
+        Contact contactFoo = new Contact(FirstName='foo', LastName='13', AccountId=account.ID);
+        Contact contactBar = new Contact(FirstName='bar', LastName='37', AccountId=account.ID);
+        insert contactFoo;
+        insert contactBar;
+    }
+    
+    @isTest
+    public static void testGetAccount() {
+        Account account = [
+            SELECT
+            	Id
+            FROM
+            	Account
+            WHERE
+            	Name = 'foobar'
+        ];
+        RestRequest req = new RestRequest();
+        req.requestURI = '/Accounts/' + account.Id + '/contacts';
+        req.httpMethod = 'GET';
+        RestContext.request = req;
+        Account found = AccountManager.getAccount();
+        Assert.areNotEqual(found, null, 'this should never be triggered');
+        Assert.areEqual(found.Name, 'foobar', 'this should never be triggered');
+        req.requestURI = '/notfound';
+		found = AccountManager.getAccount();
+        Assert.areEqual(found, null, 'this should never be triggered');
+    }
+}

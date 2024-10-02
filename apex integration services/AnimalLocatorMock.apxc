@@ -1,0 +1,19 @@
+global class AnimalLocatorMock implements HTTPCalloutMock {
+	// Implement this interface method
+    global HTTPResponse respond(HTTPRequest request) {
+        String endpoint = request.getEndpoint();
+        List<String> parts = endpoint.split('/');
+        Integer id = Integer.valueOf(parts[parts.size() - 1]);
+        HttpResponse response = new HttpResponse();        
+        if (id > 0) {
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"animal": {"name":"foobar"}}');
+            response.setStatusCode(200);
+        } else {
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"animal": {"name":"not found"}}');
+            response.setStatusCode(404);  
+        }
+        return response;
+    }
+}
