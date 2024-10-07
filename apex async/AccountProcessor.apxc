@@ -1,0 +1,31 @@
+public class AccountProcessor {
+	@future(callout=false)
+    public static void countContacts(final List<Id> ids) {
+        Map<Id, Integer> countMap = new Map<Id, Integer>();
+        List<Account> accUpdate = new List<Account>();
+        for (AggregateResult ar : [
+            SELECT
+            	AccountId, COUNT(Id) contactCount
+            FROM
+            	Contact
+            WHERE
+            	AccountId IN :ids
+            GROUP BY
+            	AccountId
+        ]) {
+            Id accountId = (Id) ar.get('AccountId');
+        	Integer count = (Integer) ar.get('contactCount');
+        	countMap.put(accountId, count);
+        }
+        
+        for (Id accid : ids) {
+            Account acc = new Account(Id=accid);
+            acc.Number_Of_Contacts__c = countMap.containsKey(accid) ? countMap.get(accid) : 0;
+        	accUpdate.add(acc);
+        }
+        
+        if (!accUpdate.isEmpty()) {
+            update accUpdate;
+        }
+    }
+}

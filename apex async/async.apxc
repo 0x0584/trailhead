@@ -1,0 +1,6 @@
+class Async {
+    @future(callout=false)
+    public void callback() {
+        System.debug('processing..');
+    }
+}

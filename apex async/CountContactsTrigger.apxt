@@ -1,0 +1,38 @@
+trigger ContactTrigger on Contact (after insert, after update, after delete, after undelete) {
+    Set<Id> idsFound = new Set<Id>();
+    List<Account> idsUpdate = new List<Account>();
+    Map<Id, Integer> countMap = new Map<Id, Integer>();
+    
+    for (Contact c : Trigger.isDelete ? Trigger.old : Trigger.new)
+        if (c.AccountId != null)
+            idsFound.add(c.AccountId);
+    
+    for (AggregateResult result : [
+        // needs to be optimised because the fileds should be updated
+    	// rather than making a query to count the contacts of each account
+        SELECT
+        	AccountId, COUNT(Id) contactCount
+        FROM
+        	Contact
+        WHERE
+        	AccountId IN :idsFound
+        GROUP BY
+        	AccountId
+    ]) {
+        Id accountId = (Id) result.get('AccountId');
+        Integer count = (Integer) result.get('contactCount');
+        countMap.put(accountId, count);
+    }
+
+    for (Id accountId : idsFound) {
+        Account acc = new Account(Id=accountId);
+        acc.Number_of_Contacts__c = accountContactCountMap.containsKey(accountId) 
+            ? accountContactCountMap.get(accountId)
+            : 0;
+        accountsToUpdate.add(acc);
+    }
+
+    if (!accountsToUpdate.isEmpty()) {
+        update accountsToUpdate;
+    }
+}

@@ -1,0 +1,53 @@
+@isTest
+public class AddPrimaryContactTest {
+	@testSetup
+    private static void setup() {
+        Contact contact = new Contact(FirstName='foo', LastName='bar', Email='foobar@1337.ma');
+        insert contact;
+        
+        String[] states = new String[2];
+        states[0] = 'NY';
+        states[1] = 'CA';
+
+        List<Account> accounts = new List<Account>();
+        for (Integer i = 0; i < 50 * 2; ++i) {
+            String state = states[(i >= 50) ? 0 : 1];
+            Account account = new Account(Name='foobar' + i, BillingState=state);
+            accounts.add(account);
+        }
+        insert accounts;
+    }
+    
+    @isTest
+    public static void addPrimaryAccountTest() {
+        List<Account> accounts = [SELECT Id, Name FROM Account WHERE Name LIKE 'foobar%'];
+        Assert.areEqual(accounts.size(), 100, 'this should never be triggered');
+        
+        List<Id> accountIds = new List<Id>();
+        for (Account account : accounts) {
+            accountIds.add(account.Id);
+        }
+        List<Contact> contacts = [SELECT Id, AccountId FROM Contact WHERE AccountId IN :accountIds];
+        Assert.areEqual(contacts.size(), 0, 'this should never be triggered');
+
+		String BillingState = 'CA';
+        Contact Billingcontact = [SELECT Id, FirstName, LastName, Email FROM Contact WHERE Email = 'foobar@1337.ma'];
+        AddPrimaryContact addPrimaryContactJob = new AddPrimaryContact(Billingcontact, BillingState);
+        
+        Test.startTest();
+        System.enqueueJob(addPrimaryContactJob);
+        Test.stopTest();
+        
+        contacts = [SELECT Id, AccountId FROM Contact WHERE AccountId IN :accountIds];
+        Assert.areEqual(contacts.size(), 50, 'this should never be triggered');
+        
+        accountIds.clear();
+        for (Contact contact : contacts) {
+            accountIds.add(contact.AccountId);
+        }
+        accounts = [SELECT Id, BillingState FROM Account WHERE Id in :accountIds];
+        for (Account account : accounts) {
+            Assert.areEqual(account.BillingState, BillingState, 'this should never be triggered');
+        }
+    }
+}

@@ -1,0 +1,41 @@
+@isTest
+public class DailyLeadProcessorTest {
+    private static String CRON = '1 1 1 1 1 ? 2094';
+    
+	@testSetup
+    private static void setup() {
+        List<Lead> leads = new List<Lead>();
+        
+        for (Integer i = 0; i < 200; ++i) {
+            Lead lead = new Lead(Company='foobar Inc.', FirstName='foo' + i, LastName='bar' + i, LeadSource=(i < 100 ? '' : null));
+            leads.add(lead);
+        }
+        
+        insert leads;
+    }
+    
+    @isTest
+    public static void dailyLeadProcessorTest() {
+        List<Lead> leads = [SELECT Id, Company, LeadSource FROM Lead WHERE Company = 'foobar Inc.'];
+        for (Lead lead : leads) {
+            if (!(lead.LeadSource == null || lead.LeadSource == '')) {
+            	Assert.areEqual(false, true, 'this should never bet riggered');                
+            }
+        }
+        
+        Map<Id, Lead> mapLeads = new Map<Id, Lead>(leads);
+        List<Id> leadIds = new List<Id>(mapLeads.keySet());
+        Test.startTest();
+        String jobId = System.schedule('DailyLeadProcessor', DailyLeadProcessorTest.CRON, new DailyLeadProcessor());
+        List<Task> tasks = [SELECT Id FROM Task WHERE WhatId IN :leadIds];
+        Assert.areEqual(tasks.size(), 0, 'this shoudl never be triggered');
+        Test.stopTest();
+        
+        tasks = [SELECT Id FROM Task WHERE WhatId IN :leadIds];
+        Assert.areEqual(tasks.size(), 0, 'this should never be triggered');
+        leads = [SELECT Id, Company, LeadSource FROM Lead WHERE Id IN :leadIds];
+        for (Lead lead : leads) {
+            Assert.areEqual(lead.LeadSource, 'Dreamforce', 'this should never be triggered');
+        }
+    }
+}

@@ -1,0 +1,37 @@
+@isTest
+public class AccountProcessorTest {
+	@testSetup
+    private static void setup() {
+        Account acc1 = new Account(Name='foo');
+        Account acc2 = new Account(Name='bar');
+        insert acc1;
+        insert acc2;
+        Contact cont1 = new Contact(LastName='o', FirstName='f', AccountId=acc1.Id);
+        Contact cont2 = new Contact(LastName='f', FirstName='o', AccountId=acc2.Id);        
+        Contact cont3 = new Contact(LastName='a', FirstName='z', AccountId=acc2.Id);
+        insert cont1;
+        insert cont2;
+        insert cont3;
+    }
+    
+    @isTest
+    public static void countContactsTest() {
+        List<Account> accounts = [SELECT Id, Number_Of_Contacts__c FROM Account];
+        List<Id> ids = new List<Id>();
+        for (Account acc : accounts) {
+            System.debug(acc.Number_Of_Contacts__c);
+            Assert.areEqual(acc.Number_Of_Contacts__c, 0, 'this should never be triggered');
+        	ids.add(acc.Id);
+        }
+        Test.startTest();
+        AccountProcessor.countContacts(ids);
+        Test.stopTest();
+        accounts = [SELECT Name, Number_Of_Contacts__c FROM Account];
+        for (Account account : accounts) {
+            if (account.Name == 'foo')
+        		Assert.areEqual(account.Number_Of_Contacts__c, 1, 'this should never be triggered');
+            else
+            	Assert.areEqual(account.Number_Of_Contacts__c, 2, 'this should never be triggered');
+        }
+    }
+}
