@@ -1,0 +1,4 @@
+trigger MaintenanceRequestTrigger on MaintenanceRequest (after insert, after update) {
+    MaintenanceRequestHelper helper = new MaintenanceRequestHelper(Trigger.new);
+    helper.execute();
+}

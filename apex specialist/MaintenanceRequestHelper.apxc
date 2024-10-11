@@ -1,0 +1,62 @@
+class MaintenanceRequestHelper {
+    private List<MaintenanceRequest> requests;
+
+    private static Boolean maintenanceRequestPredicate(MaintenanceRequest request) {
+        return request.Status == 'Closed' &&
+            (request.Type__c == 'Repair' || request.Type__c == 'Routine Maintenance');
+    }
+
+    public MaintenanceRequestHelper(List<MaintenanceRequest> requests) {
+        this.requests = new List<MaintenanceRequest>();
+        for (MaintenanceRequest request : requests) {
+            if (MaintenanceRequestHelper.maintenanceRequestPredicate(request)) {
+                this.requests.add(request);
+            }
+        }
+    }
+
+    @future(callout=false)
+    public void execute() {
+        List<Id> requestIds = new List<Id>();
+        List<MaintenanceRequest> checkups = new List<MaintenanceRequest>();
+        for (MaintenanceRequest request : this.requests) {
+            MaintenanceRequest routineCheckup = request.clone(true, true, false, false);
+            routineCheckup.ReportDate__c = Date.today();
+            routineCheckup.Type__c = 'Routine Maintenance';
+            if (routineCheckup.Subject__c == null || routineCheckup.Subject__c == '') {
+                routineCheckup.Subject__c = 'Routine Maintenance';
+            }
+            checkups.add(routineCheckup);
+            requestIds.add(request.Id);
+        }
+
+        List<AggregateResult> maintenanceCycles = [
+            SELECT
+                Id, MIN(Maintenance_Cycle__c) Cycle
+            FROM
+                Equipment
+            WHERE Id IN (
+                SELECT
+                    EquipmentId
+                FROM
+                    Equipment_Maintenance_Item__c
+                WHERE
+                    Equipment_Maintenance_Item__c IN :requestIds
+            )
+            GROUP BY 
+                Id
+        ];
+
+        Map<Id,Integer> mapCycles = new Map<Id, Integer>();
+        for (AggregateResult ar : maintenanceCycles) {
+            mapCycles.put(ar.get('Id'), ar.get('Cycle'));
+        }
+
+        for (MaintenanceRequest checkup : checkups) {
+            checkup.DueDate__c = maintenanceCycles.get(checkup.Id);
+        }
+
+        insert checkups;
+    }
+
+}
