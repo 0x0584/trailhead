@@ -1,0 +1,62 @@
+class UpdateWarehouse implements Schedulable {
+    private HttpRequest request;
+
+    private static void updateFailure(Integer statusCode) {
+        System.debug('Request to https://th-superbadge-apex.herokuapp.com/equipment has responded with status: '
+            + statusCode + ' at ' + new Date().now());
+        throw new IllegalArgumentException('Failure to update the inventory');
+    }
+
+    private static void updateSuccess(String responseBody) {
+        Map<String, Object> warehouseEquipments = (Map<String, Object>) JSON.deserializeUntyped(responseBody);
+        System.debug('Response has ' + warehouseEquipments.size() + ' at ' + new Date().now());
+        
+        List<MaintenanceRequest> toInsert = new List<MaintenanceRequest>();
+        Map<Id, MaintenanceRequest> toUpdate = new Map<Id, MaintenanceRequest>();
+
+        for (String key : warehouseEquipments.keySet()) {
+            Map<String, Object> value = (Map<String, Object>) warehouseEquipments.get(key);
+
+            Equipment equipment = new Equipment();
+            equipment.Maintenance_Cycle__c = (Integer) value.get('Maintenance cycle');
+
+            String externalId = (String) equipment.get('Warehouse SKU');
+            if (externalId == '') {
+                toInsert.add(equipment);
+            } else {
+                toUpdate.put(externalId, equipment);
+            }
+        }
+
+        List<Equipment> equipments = [
+            SELECT
+                Id
+            FROM
+                Equipment
+            WHERE
+                Id IN :toUpdate.keySet()
+        ];
+
+        for (Equipment equipment : equipments) {
+            equipment.Maintenance_Cycle__c = // update 
+        }
+
+        insert toInsert;
+        update toUpdate;
+    }
+
+    public UpdateWareHouse() {
+        request = new HttpRequest();
+        request.setEndPoint('https://th-superbadge-apex.herokuapp.com/equipment');
+        request.setMethod('GET');
+    }
+
+    public void execute(SchedulableContext sx) {
+        HttpResponse response = new Http().send(request);
+        Integer statusCode = response.getStatusCode();
+        switch on statusCode {
+            when 200  { updateSuccess(response.getBody()); }
+            when else { updateFailure(statusCode); }
+        } 
+    }
+}

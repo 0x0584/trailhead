@@ -1,0 +1,113 @@
+public class MaintenanceRequestJob implements Queueable {
+    private List<Case> requests;
+
+    private static Boolean predicate(Case request) {
+        return request.Status == 'Closed' &&
+            (request.Type == 'Repair' || request.Type == 'Routine Maintenance');
+    }
+    
+    public MaintenanceRequestJob(List<Case> cases) {
+        requests = new List<Case>();
+        for (Case request : cases) {
+            if (MaintenanceRequestJob.predicate(request)) {
+                requests.add(request);
+            }
+        } 
+    }
+    
+    public static Integer min(Integer a, Integer b) {
+        return a < b ? a : b;
+    }
+    
+    public void execute(QueueableContext qx) {
+        List<Id> requestIds = new List<Id>();
+        List<Case> checkups = new List<Case>();
+
+        for (Case request : requests) {
+            System.debug(request.ProductId);
+            
+            Case routineCheckup = request.clone(true, true, false, false);
+            routineCheckup.Date_Reported__c = Date.today();
+            routineCheckup.Type = 'Routine Maintenance';
+            routineCheckup.Status = 'New';
+            if (routineCheckup.Subject == null || routineCheckup.Subject == '') {
+                routineCheckup.Subject = 'Routine Maintenance';
+            }
+            System.debug(request.ProductId);
+            checkups.add(routineCheckup);
+            requestIds.add(request.Id);
+        }
+        
+        List<Product2> equipments = [
+            SELECT
+                Id, Maintenance_Cycle__c
+            FROM
+                Product2
+            WHERE
+            	Maintenance_Cycle__c != null
+        ];
+
+        Map<Id, Integer> equipmentCycles = new Map<Id, Integer>();
+        for (Product2 equipment : equipments) {
+            Assert.areNotEqual(equipment.Maintenance_Cycle__c, null, '');
+        	equipmentCycles.put(equipment.Id, (Integer) equipment.Maintenance_Cycle__c);
+        }
+
+        List<Equipment_Maintenance_Item__c> equipmenMaintenanceItems = [
+        	SELECT
+            	Equipment__c, Maintenance_Request__c
+         	FROM
+            	Equipment_Maintenance_Item__c
+            WHERE
+            	Maintenance_Request__c IN :requestIds  
+        ];
+        
+        Map<Id, Set<Equipment_Maintenance_Item__c>> mapEquipmentsByCaseId = new Map<Id, Set<Equipment_Maintenance_Item__c>>();
+        for (Equipment_Maintenance_Item__c item : equipmenMaintenanceItems) {
+            if (!mapEquipmentsByCaseId.containsKey(item.Maintenance_Request__c)) {
+                mapEquipmentsByCaseId.put(item.Maintenance_Request__c, new Set<Equipment_Maintenance_Item__c>());
+            }
+            mapEquipmentsByCaseId.get(item.Maintenance_Request__c).add(
+                new Equipment_Maintenance_Item__c(Equipment__c=item.Equipment__c));
+        }
+        
+        Map<Id, Integer> mapCycles = new Map<Id, Integer>();
+        for (Equipment_Maintenance_Item__c equipmentMaintenanceItem : equipmenMaintenanceItems) {
+            if (mapCycles.containsKey(equipmentMaintenanceItem.Maintenance_Request__c)) {
+                Integer oldMin = mapCycles.get(equipmentMaintenanceItem.Maintenance_Request__c);
+                Integer newMin = min(oldMin, equipmentCycles.get(equipmentMaintenanceItem.Equipment__c));
+                mapCycles.put(equipmentMaintenanceItem.Maintenance_Request__c, newMin);
+            } else {
+                mapCycles.put(equipmentMaintenanceItem.Maintenance_Request__c,
+                              equipmentCycles.get(equipmentMaintenanceItem.Equipment__c)); 
+            }
+        }
+        
+        for (Case checkup : checkups) {
+            Integer cycle = mapCycles.get(checkup.Id);            
+            Date checkupDate;
+            if (checkup.Date_Due__c != null) {
+                checkupDate = checkup.Date_Due__c;
+            } else {
+                checkupDate = checkup.Date_Reported__c;
+            }
+            checkup.Date_Due__c = checkupDate.addDays(cycle);
+            checkup.Id = null;
+        }
+
+        insert checkups;
+        
+        Integer i = 0;
+        List<Equipment_Maintenance_Item__c> items = new List<Equipment_Maintenance_Item__c>();
+        for (Id idt : requestIds) {
+            for (Equipment_Maintenance_Item__c item : mapEquipmentsByCaseId.get(idt)) {
+				item.Maintenance_Request__c = checkups.get(i).Id;
+                System.debug(item);
+				items.add(item);                
+            }
+            ++i;
+        }
+        
+        insert items;
+    }
+}

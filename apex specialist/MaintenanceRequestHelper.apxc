@@ -1,31 +1,26 @@
-class MaintenanceRequestHelper {
-    private List<MaintenanceRequest> requests;
-
-    private static Boolean maintenanceRequestPredicate(MaintenanceRequest request) {
+public with sharing class MaintenanceRequestHelper {
+    private static Boolean predicate(Case request) {
         return request.Status == 'Closed' &&
-            (request.Type__c == 'Repair' || request.Type__c == 'Routine Maintenance');
+            (request.Type == 'Repair' || request.Type == 'Routine Maintenance');
     }
 
-    public MaintenanceRequestHelper(List<MaintenanceRequest> requests) {
-        this.requests = new List<MaintenanceRequest>();
-        for (MaintenanceRequest request : requests) {
-            if (MaintenanceRequestHelper.maintenanceRequestPredicate(request)) {
-                this.requests.add(request);
+    //@future(callout=false)
+    public static void updateWorkOrders(List<Case> cases) {
+        List<Case> requests = new List<Case>();
+        for (Case request : requests) {
+            if (MaintenanceRequestHelper.predicate(request)) {
+                requests.add(request);
             }
-        }
-    }
-
-    @future(callout=false)
-    public void execute() {
+        }    
         List<Id> requestIds = new List<Id>();
-        List<MaintenanceRequest> checkups = new List<MaintenanceRequest>();
-        for (MaintenanceRequest request : this.requests) {
-            MaintenanceRequest routineCheckup = request.clone(true, true, false, false);
-            routineCheckup.ReportDate__c = Date.today();
-            routineCheckup.Type__c = 'Routine Maintenance';
-            if (routineCheckup.Subject__c == null || routineCheckup.Subject__c == '') {
-                routineCheckup.Subject__c = 'Routine Maintenance';
-            }
+        List<Case> checkups = new List<Case>();
+        for (Case request : requests) {
+            Case routineCheckup = request.clone(true, true, false, false);
+            routineCheckup.Date_Reported__c = Date.today();
+            routineCheckup.Type = 'Routine Maintenance';
+            if (routineCheckup.Subject == null || routineCheckup.Subject == '') {
+                routineCheckup.Subject = 'Routine Maintenance';
+            } 
             checkups.add(routineCheckup);
             requestIds.add(request.Id);
         }
@@ -34,14 +29,14 @@ class MaintenanceRequestHelper {
             SELECT
                 Id, MIN(Maintenance_Cycle__c) Cycle
             FROM
-                Equipment
+                Product2
             WHERE Id IN (
                 SELECT
-                    EquipmentId
+                    Equipment__c
                 FROM
                     Equipment_Maintenance_Item__c
                 WHERE
-                    Equipment_Maintenance_Item__c IN :requestIds
+                    Maintenance_Request__c IN :requestIds
             )
             GROUP BY 
                 Id
@@ -49,14 +44,15 @@ class MaintenanceRequestHelper {
 
         Map<Id,Integer> mapCycles = new Map<Id, Integer>();
         for (AggregateResult ar : maintenanceCycles) {
-            mapCycles.put(ar.get('Id'), ar.get('Cycle'));
+            mapCycles.put((Id) ar.get('Id'), (Integer) ar.get('Cycle'));
         }
 
-        for (MaintenanceRequest checkup : checkups) {
-            checkup.DueDate__c = maintenanceCycles.get(checkup.Id);
+        for (Case checkup : checkups) {
+            Integer cycles = mapCycles.get(checkup.Id);
+            checkup.Date_Due__c = checkup.Date_Reported__c.addDays(cycles);
         }
 
         insert checkups;
-    }
-
+    }        
+    
 }
