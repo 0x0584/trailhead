@@ -1,0 +1,45 @@
+public class WarehouseCalloutServiceHandler {
+	@Future(callout=true)
+    public static void execute(String url) {
+        String method = 'GET';
+        Http http = new Http();
+        HttpRequest req = new HttpRequest();
+        req.setEndPoint(url);
+        req.setMethod(method);
+        HttpResponse res = http.send(req);
+        Integer statusCode = res.getStatusCode();
+        List<Product2> updated = new List<Product2>();
+        List<Product2> inserted = new List<Product2>();
+        switch on statusCode {
+            when 200 {
+                Map<String, Id> equipmentIds = new Map<String, Id>();
+                for (Product2 equipment : [SELECT Id, Name FROM Product2]) {
+                    equipmentIds.put(equipment.Name, equipment.Id);
+                }
+                for (Object o : (List<Object>) JSON.deserializeUntyped(res.getBody())) {
+                    Map<String, Object> m = (Map<String, Object>)o;
+                    String equipmentName = (String) m.get('name');
+                    Product2 equipment = new Product2();
+					equipment.Name = equipmentName;
+                    equipment.Cost__c = (Double) m.get('cost');
+                    equipment.Lifespan_Months__c = (Integer) m.get('lifespan');
+                    equipment.Maintenance_Cycle__c = (Integer) m.get('maintenanceperiod');
+                    equipment.Current_Inventory__c = (Integer) m.get('quantity');
+                    equipment.Replacement_Part__c = (Boolean) m.get('replacement');
+                    equipment.Warehouse_SKU__c = (String) m.get('sku');
+                    if (equipmentIds.containsKey(equipmentName)) {
+                        equipment.Id = equipmentIds.get(equipmentName);
+                    	updated.add(equipment);
+                    } else {
+                        inserted.add(equipment);
+                    }
+                }
+                System.debug(inserted);
+                System.debug('----------');
+                System.debug(updated);
+            	update updated;
+                insert inserted;
+            }
+        }
+    }
+}
