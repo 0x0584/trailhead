@@ -24,8 +24,6 @@ public class MaintenanceRequestJob implements Queueable {
         List<Case> checkups = new List<Case>();
 
         for (Case request : requests) {
-            System.debug(request.ProductId);
-            
             Case routineCheckup = request.clone(true, true, false, false);
             routineCheckup.Date_Reported__c = Date.today();
             routineCheckup.Type = 'Routine Maintenance';
@@ -33,7 +31,6 @@ public class MaintenanceRequestJob implements Queueable {
             if (routineCheckup.Subject == null || routineCheckup.Subject == '') {
                 routineCheckup.Subject = 'Routine Maintenance';
             }
-            System.debug(request.ProductId);
             checkups.add(routineCheckup);
             requestIds.add(request.Id);
         }
@@ -49,7 +46,6 @@ public class MaintenanceRequestJob implements Queueable {
 
         Map<Id, Integer> equipmentCycles = new Map<Id, Integer>();
         for (Product2 equipment : equipments) {
-            Assert.areNotEqual(equipment.Maintenance_Cycle__c, null, '');
         	equipmentCycles.put(equipment.Id, (Integer) equipment.Maintenance_Cycle__c);
         }
 
@@ -84,7 +80,8 @@ public class MaintenanceRequestJob implements Queueable {
         }
         
         for (Case checkup : checkups) {
-            Integer cycle = mapCycles.get(checkup.Id);            
+            Integer cycle = mapCycles.get(checkup.Id);      
+            Assert.areNotEqual(cycle, null, 'Maintenance Request has no associated Equipment Maintenance Item');
             Date checkupDate;
             if (checkup.Date_Due__c != null) {
                 checkupDate = checkup.Date_Due__c;
@@ -102,7 +99,6 @@ public class MaintenanceRequestJob implements Queueable {
         for (Id idt : requestIds) {
             for (Equipment_Maintenance_Item__c item : mapEquipmentsByCaseId.get(idt)) {
 				item.Maintenance_Request__c = checkups.get(i).Id;
-                System.debug(item);
 				items.add(item);                
             }
             ++i;

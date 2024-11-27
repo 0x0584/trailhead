@@ -1,5 +1,6 @@
 public with sharing class MaintenanceRequestHelper {
     public static void updateWorkOrders(List<Case> cases) {
-        new MaintenanceRequestJob(cases).execute(null);
+        MaintenanceRequestJob job = new MaintenanceRequestJob(cases);
+        System.enqueueJob(job);
     }
 }

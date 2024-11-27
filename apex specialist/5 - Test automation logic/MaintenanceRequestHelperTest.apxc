@@ -1,0 +1,132 @@
+@isTest
+public with sharing class MaintenanceRequestHelperTest {
+    @testSetup
+    public static void setup() {
+        Date today = Date.today();
+        
+        // Step 1: Create Product2 objects with Maintenance_Cycle__c
+        List<Product2> products = new List<Product2>();
+        
+        products.add(new Product2(
+            Name = 'HVAC System',
+            Maintenance_Cycle__c = 30,
+            Replacement_Part__c = true
+        ));
+        
+        products.add(new Product2(
+            Name = 'Elevator',
+            Maintenance_Cycle__c = 15,
+            Replacement_Part__c = true
+        ));
+        
+        products.add(new Product2(
+            Name = 'Window',
+            Maintenance_Cycle__c = 7,
+            Replacement_Part__c = true
+        ));
+        
+        products.add(new Product2(
+            Name = 'Faucet',
+            Maintenance_Cycle__c = 90,
+            Replacement_Part__c = true
+        ));
+        
+        products.add(new Product2(
+            Name = 'Structural Component',
+            Maintenance_Cycle__c = 180,
+            Replacement_Part__c = true
+        ));
+        
+        // Insert the products
+        insert products;
+        
+        // Step 2: Create Case objects and update with ProductId
+        List<Case> cases = new List<Case>();
+        
+        cases.add(new Case(
+            Type = 'Repair',
+            Status = 'New',
+            Subject = 'Repair of broken window',
+            Date_Due__c = today.addDays(7)
+        ));
+        
+        cases.add(new Case(
+            Type = 'Repair',
+            Status = 'New',
+            Subject = '',
+            Date_Reported__c = today.addDays(31)
+        ));
+        
+        cases.add(new Case(
+            Type = 'Routine Maintenance',
+            Status = 'New',
+            Subject = 'Elevator inspection',
+            Date_Due__c = today.addDays(21)
+        ));
+        
+        cases.add(new Case(
+            Type = 'Structural',
+            Status = 'New',
+            Subject = 'Structural integrity assessment',
+            Date_Reported__c = today.addDays(7)
+        ));
+        
+        // Insert the cases
+        insert cases;
+        
+        // Step 3: Create custom junction objects Equipment_Maintenance_Item__c
+        List<Equipment_Maintenance_Item__c> equipmentMaintenanceItems = new List<Equipment_Maintenance_Item__c>();
+        
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(
+            Maintenance_Request__c = cases.get(0).Id, // Window
+            Equipment__c = products.get(2).Id
+        ));
+
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(
+            Maintenance_Request__c = cases.get(1).Id, // Faucet
+            Equipment__c = products.get(3).Id
+        ));
+
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(
+            Maintenance_Request__c = cases.get(2).Id, // Elevator
+            Equipment__c = products.get(0).Id // Elevator
+        ));
+
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(
+            Maintenance_Request__c = cases.get(2).Id,
+            Equipment__c = products.get(1).Id // HAVAC System
+        ));
+
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(
+            Maintenance_Request__c = cases.get(3).Id, // Structural
+            Equipment__c = products.get(4).Id
+        ));        
+        
+        // Insert the junction objects
+        insert equipmentMaintenanceItems;
+    } 
+    
+    public static Integer getEquipmentMaintenanceItems() {
+      List<Equipment_Maintenance_Item__c> equipmentMaintenanceItems = [
+          SELECT
+          	Equipment__c, Maintenance_Request__c
+          FROM
+          	Equipment_Maintenance_Item__c
+      ];
+        return equipmentMaintenanceItems.size();
+    }
+    
+    @isTest
+    public static void testOne() {
+        Test.startTest();
+        List<Case> cases = [SELECT Status FROM Case WHERE Status = 'New'];
+        Integer oldJunctionSize = getEquipmentMaintenanceItems();
+        for (Case c : cases) {
+            c.Status = 'Closed';
+        }
+        update cases;
+        Integer newJunctionSize = getEquipmentMaintenanceItems();
+        Test.stopTest();
+        System.assert(newJunctionSize > oldJunctionSize, 'Equipment_Maintenance_Item__c were not created!');
+    }
+}
