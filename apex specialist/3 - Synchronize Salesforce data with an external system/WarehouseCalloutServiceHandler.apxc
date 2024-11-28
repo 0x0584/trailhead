@@ -34,9 +34,6 @@ public class WarehouseCalloutServiceHandler {
                         inserted.add(equipment);
                     }
                 }
-                System.debug(inserted);
-                System.debug('----------');
-                System.debug(updated);
             	update updated;
                 insert inserted;
             }

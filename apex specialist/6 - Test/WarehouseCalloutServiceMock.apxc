@@ -1,0 +1,34 @@
+global class WarehouseCalloutServiceMock implements HTTPCalloutMock {
+    private String equipment2JSON(Product2 equipment) {
+        return '{'+
+            '"name":"'              + equipment.Name + '"' +
+            '"cost":'               + equipment.Cost__c +
+            '"lifespan":'           + equipment.Lifespan_Months__c +
+            '"maintenanceperiod":'  + equipment.Maintenance_Cycle__c + 
+            '"quantity":'           + equipment.Current_Inventory__c +
+            '"replacement:"'        +  equipment.Replacement_Part__c +
+            '"sku": "_id1337421412"'+
+            '}';
+    }
+    
+    global HTTPResponse respond(HTTPRequest request) {
+        List<Product2> equipments = [
+            SELECT
+            	Name , Cost__c, Lifespan_Months__c, Maintenance_Cycle__c,
+            	Current_Inventory__c, Replacement_Part__c
+            FROM
+            	Product2
+        ];
+        Integer idx = equipments.size();
+        String equipmentsJSON = '{';
+        for (Product2 equipment : equipments) {
+            equipmentsJSON += equipment2JSON(equipment) + (--idx > 0 ? ',' : '');
+        }
+        equipmentsJSON += '}';
+        HttpResponse response = new HttpResponse();
+        response.setHeader('Content-Type', 'application/json');
+        response.setBody(equipmentsJSON);
+        response.setStatusCode(200);
+        return response;
+    }
+}
