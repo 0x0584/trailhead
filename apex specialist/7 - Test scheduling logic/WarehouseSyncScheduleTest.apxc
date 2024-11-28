@@ -1,0 +1,25 @@
+@isTest
+public with sharing class WarehouseSyncScheduleTest {
+    private static String CRON = '1 1 1 1 1 ? 2094';
+
+    @isTest
+    public static void testOne() {
+        List<Product2> prods = [
+            SELECT
+            	Id, Name
+            FROM
+            	Product2
+        ];
+        Map<Id, Product2> mapProds = new Map<Id, Product2>(prods);
+        List<Id> prodsIds = new List<Id>(mapProds.keySet());
+		Test.startTest();
+        String jobId = System.schedule('WarehouseSync', WarehouseSyncScheduleTest.CRON, new WarehouseSyncSchedule());
+        List<Task> tasks = [SELECT Id FROM Task WHERE WhatId IN :prodsIds];
+        Assert.areEqual(tasks.size(), 0, 'this shoudl never be triggered');
+        Test.stopTest();
+        
+        tasks = [SELECT Id FROM Task WHERE WhatId IN :prodsIds];
+        Assert.areEqual(tasks.size(), 0, 'this should never be triggered');
+
+    }
+}
